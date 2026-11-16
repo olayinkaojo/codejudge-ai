@@ -35,7 +35,7 @@ pip install -r requirements-dev.txt
 # Keep PostgreSQL available; the example .env connects to Compose's port 55432.
 docker compose up -d db
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --no-proxy-headers
 # In another terminal with the same virtualenv and environment:
 python -m app.worker
 ```
@@ -78,8 +78,8 @@ Artifact references are opaque IDs (1–256 letters, digits, `_`, `-`, `.`; firs
 character alphanumeric). They are never interpreted as URLs, paths, or commands.
 Clients cannot supply test outcomes, scores, ownership, or job state. Unknown
 fields, invalid counts/types and malformed UUIDs return 422. Cross-user access
-returns 404. Missing/invalid/expired tokens return 401. Duplicate usernames return
-409. Request bodies, including chunked bodies, are limited to 128 KiB (413).
+returns 404. Missing/invalid/expired tokens return 401. Registration returns the same generic 201 result for new/existing usernames to
+reduce account enumeration; it never changes an existing password. Request bodies, including chunked bodies, are limited to 128 KiB (413).
 Validation responses omit rejected values, including passwords.
 
 **Breaking changes from the prototype:** authentication is required; data survives
@@ -250,3 +250,19 @@ See the [audit and production-readiness checklist](docs/production-readiness.md)
 for cold-start recovery, duplicate-request semantics, accessibility changes, local
 validation, remaining risks, deployment order and rollback. This phase adds no
 database migration and does not activate AI or the pending execution runner.
+
+
+## Security and database protection (Phase 6B)
+
+[Backup/recovery and Render Free expiry procedures](docs/database-protection.md)
+use standard PostgreSQL clients and GnuPG on an existing trusted computer. Backups
+are encrypted outside the checkout, verified offline and restored only into empty,
+explicitly confirmed local drill databases. No production backup/restore or hosted
+scheduler is run by this change.
+
+[Authentication admission controls](docs/authentication-security.md) use durable
+PostgreSQL counters across API replicas before password hashing, generic
+registration responses and bounded 429/Retry-After guidance. Revision
+`f6b20261116` adds only rate-state tables; a production migration/deployment requires
+separate review and approval. Keep Uvicorn proxy rewriting disabled and leave the
+proxy allowlist empty unless actual ingress behavior has been verified.

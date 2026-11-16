@@ -16,6 +16,7 @@ USER root
 RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY --chown=codejudge:codejudge pyproject.toml ./
 COPY --chown=codejudge:codejudge tests ./tests
+COPY --chown=codejudge:codejudge scripts/db_backup.py ./scripts/db_backup.py
 USER codejudge
 
 FROM base AS production

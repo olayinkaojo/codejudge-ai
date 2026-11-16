@@ -222,5 +222,9 @@ migration/model checks and separate local Docker restart-persistence smoke passe
 The native PostgreSQL client commands in this managed workspace were supplied by
 thin local wrappers around an isolated PostgreSQL 16 container; CI pins Ubuntu 24.04 for its supported native
 16 client packages rather than the moving ubuntu-latest label. Both use the same CLI and actual pg_dump/pg_restore/GnuPG operations.
+The read-only development Docker target also passed 12 focused unit tests, with
+2 PostgreSQL-only cases intentionally skipped there (covered by the full native
+drill). The development image copies the CLI module for test collection; production
+backup operations remain outside the API image.
 No production connection/data, backup schedule, paid storage or real AI call was
 used. Remote CI and live recovery readiness must be checked separately.

@@ -1,0 +1,63 @@
+name: codejudge
+x-app: &app
+  build:
+    context: .
+    target: production
+  environment: &app-env
+    DATABASE_URL: postgresql+psycopg://codejudge:${POSTGRES_PASSWORD:-codejudge}@db:5432/codejudge
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=32m
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codejudge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codejudge}
+      POSTGRES_DB: codejudge
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U codejudge -d codejudge']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  migrate:
+    <<: *app
+    command: ['alembic', 'upgrade', 'head']
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    <<: *app
+    ports:
+      - '127.0.0.1:${API_PORT:-8000}:8000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  worker:
+    <<: *app
+    command: ['python', '-m', 'app.worker']
+    environment:
+      <<: *app-env
+      SANDBOX_URL: ${SANDBOX_URL:-}
+      SANDBOX_TOKEN: ${SANDBOX_TOKEN:-}
+      ALLOW_INSECURE_SANDBOX: ${ALLOW_INSECURE_SANDBOX:-false}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+volumes:
+  postgres_data:

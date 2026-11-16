@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.auth import (
     token_digest,
     verify_password,
 )
+from app.database_status import check_database, report_failure
 from app.db import get_db
 from app.middleware import BodyLimitMiddleware
 from app.models import Evaluation, Task, Token, User
@@ -23,6 +24,12 @@ from app.schemas import Credentials, EvaluationCreate, EvaluationOut, TaskCreate
 
 app = FastAPI(title="CodeJudge AI", version="1.0.0")
 app.add_middleware(BodyLimitMiddleware)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error(request, exc):
+    report_failure(exc, "database_request")
+    return JSONResponse(status_code=503, content={"detail": "Database unavailable"})
 
 
 @app.exception_handler(RequestValidationError)
@@ -52,8 +59,9 @@ def health():
 @app.get("/ready")
 def ready(db: Session = Depends(get_db)):
     try:
-        db.execute(text("SELECT 1 FROM users LIMIT 1"))
-    except SQLAlchemyError:
+        check_database(db)
+    except Exception as exc:
+        report_failure(exc, "readiness")
         raise HTTPException(503, "Database unavailable") from None
     return {"status": "ready"}
 

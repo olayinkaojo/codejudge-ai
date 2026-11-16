@@ -19,6 +19,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_test
       TEST_DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_test
+      MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_migration_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +33,14 @@ jobs:
       - run: alembic upgrade head
       - run: alembic check
       - run: alembic downgrade base && alembic upgrade head
+      - name: Create dedicated migration test database
+        run: |
+          python - <<'PY'
+          from sqlalchemy import create_engine, text
+          from app.config import get_settings
+          with create_engine(get_settings().database_url, isolation_level='AUTOCOMMIT').connect() as connection:
+              connection.execute(text('CREATE DATABASE codejudge_migration_test'))
+          PY
       - run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=85
       - run: docker build --target production -t codejudge:ci .
       - run: docker compose config --quiet

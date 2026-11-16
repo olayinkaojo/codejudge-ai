@@ -1,12 +1,28 @@
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    database_url: str = "postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+    database_url: str = Field(
+        default="postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge", repr=False
+    )
+
+    @field_validator("database_url")
+    @classmethod
+    def postgres_driver(cls, value):
+        try:
+            url = make_url(value)
+        except (ArgumentError, ValueError):
+            raise ValueError("DATABASE_URL must be a valid PostgreSQL URL") from None
+        if url.drivername not in {"postgres", "postgresql", "postgresql+psycopg"}:
+            raise ValueError("DATABASE_URL requires PostgreSQL with the installed Psycopg 3 driver")
+        return url.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
+
     token_hours: int = Field(default=24, ge=1, le=720)
     sandbox_url: str | None = None
     sandbox_token: SecretStr | None = None

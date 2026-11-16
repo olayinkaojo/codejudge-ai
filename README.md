@@ -223,3 +223,12 @@ Python editor, browser-local evaluation history, and detailed results. It uses
 server-managed encrypted HttpOnly cookies and the existing FastAPI contracts.
 Source uploads and server-wide evaluation history are not supported by the current
 API; the frontend documents and respects those boundaries.
+
+## Render database readiness (Phase 5A)
+
+See [the Render migration and verification guide](docs/render-database.md) for
+safe diagnostics and an opt-in, free-tier-compatible startup migration step.
+`MIGRATE_ON_START=true` applies reviewed Alembic upgrades before the web server
+starts; it defaults off. `/ready` validates all required tables/columns and the
+migration revision without writing data. Production deployment/configuration
+changes require your review; this fix does not merge or enable Phase 3.

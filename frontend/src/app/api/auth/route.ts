@@ -60,7 +60,14 @@ export async function POST(request: NextRequest) {
       credentials,
     );
     const data = await response.json();
-    if (!response.ok) return json(data, response.status);
+    if (!response.ok) {
+      const retry = response.headers.get("Retry-After");
+      return json(
+        data,
+        response.status,
+        retry && /^\d{1,6}$/.test(retry) ? { "Retry-After": retry } : {},
+      );
+    }
     if (input.action === "register") return json({ ok: true }, 201);
     if (
       typeof data.access_token !== "string" ||

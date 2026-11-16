@@ -23,12 +23,13 @@ import {
 } from "@/lib/types";
 import { Badge, date, Empty, ErrorNotice, Loading, PageHeading } from "./ui";
 import { useUsername } from "./workspace";
-async function fetchHistory(username: string) {
+export async function fetchHistory(username: string) {
   const entries = readHistory(username);
   const results: Record<string, Evaluation> = {};
   const errors: Record<string, string> = {};
   // Bound concurrent refreshes instead of flooding the backend with up to 100 requests.
   for (let offset = 0; offset < entries.length; offset += 5) {
+    let unavailable = false;
     await Promise.all(
       entries.slice(offset, offset + 5).map(async (entry) => {
         try {
@@ -37,9 +38,22 @@ async function fetchHistory(username: string) {
           );
         } catch (e) {
           errors[entry.id] = (e as Error).message;
+          if (
+            e &&
+            typeof e === "object" &&
+            "status" in e &&
+            [0, 401, 502, 503, 504].includes(Number(e.status))
+          )
+            unavailable = true;
         }
       }),
     );
+    if (unavailable) {
+      for (const entry of entries.slice(offset + 5))
+        errors[entry.id] =
+          "Refresh paused while the API is unavailable. Retry when connected.";
+      break;
+    }
   }
   return { entries, results, errors };
 }

@@ -24,7 +24,7 @@ export function Badge({ status }: { status: EvaluationStatus }) {
 }
 export function ErrorNotice({ message }: { message: string }) {
   return (
-    <div className="error-notice" role="alert">
+    <div className="error-notice" role="alert" aria-atomic="true">
       <AlertCircle size={18} />
       <span>{message}</span>
     </div>
@@ -38,7 +38,13 @@ export function Loading({
   return (
     <div className="loading" role="status">
       <LoaderCircle className="spin" size={22} />
-      <p>{label}</p>
+      <div>
+        <p>{label}</p>
+        <small className="field-help">
+          Free hosting may need a moment to wake up. Requests are not retried
+          automatically.
+        </small>
+      </div>
     </div>
   );
 }

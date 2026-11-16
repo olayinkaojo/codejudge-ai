@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-export function json(body: unknown, status = 200) {
+export function json(
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {},
+) {
   return NextResponse.json(body, {
     status,
-    headers: { "Cache-Control": "no-store" },
+    headers: { ...headers, "Cache-Control": "no-store" },
   });
 }
 export function sameOrigin(request: NextRequest) {
@@ -52,6 +56,7 @@ export async function upstream(
   method = "GET",
   token?: string,
   body?: unknown,
+  requestId?: string,
 ) {
   const base = new URL(process.env.BACKEND_URL || "http://127.0.0.1:8000");
   if (
@@ -67,6 +72,7 @@ export async function upstream(
     method,
     headers: {
       "Content-Type": "application/json",
+      ...(requestId ? { "Idempotency-Key": requestId } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),

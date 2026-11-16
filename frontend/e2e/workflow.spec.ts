@@ -51,12 +51,22 @@ test("real backend workflow, honest failure, private session and responsive edit
     path: testInfo.outputPath("dashboard.png"),
     fullPage: true,
   });
+  await page.route("**/api/backend/reviews/config", (route) =>
+    route.fulfill({ status: 503, json: { detail: "temporarily unavailable" } }),
+  );
   await page
     .getByRole("link", { name: /A thoughtful Python challenge/ })
     .click();
   await expect(
     page.getByRole("heading", { name: "A thoughtful Python challenge" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Code review" }).getByRole("alert"),
+  ).toContainText("may be waking up");
+  await page.unroute("**/api/backend/reviews/config");
+  await page
+    .getByRole("button", { name: "Retry provider information" })
+    .click();
   await expect(page.locator(".monaco-editor")).toBeVisible({ timeout: 60000 });
   await page.screenshot({
     path: testInfo.outputPath("editor.png"),
@@ -73,6 +83,9 @@ test("real backend workflow, honest failure, private session and responsive edit
   const downloaded = await download;
   const file = await downloaded.path();
   expect(await readFile(file!, "utf8")).toBe("print(2 + 2)\n");
+  const reviewRequest = page.waitForRequest(
+    (r) => r.url().endsWith("/api/backend/reviews") && r.method() === "POST",
+  );
   await page.getByRole("button", { name: "Review code", exact: true }).click();
   await expect(page.getByText("Simulated · mock")).toBeVisible();
   await expect(page.getByText("Console output", { exact: true })).toBeVisible();
@@ -80,6 +93,22 @@ test("real backend workflow, honest failure, private session and responsive edit
   const reviewUrl = await page
     .getByRole("link", { name: "Open saved review" })
     .getAttribute("href");
+  const sent = await reviewRequest;
+  const requestKey = sent.headers()["idempotency-key"];
+  expect(requestKey).toMatch(/^[0-9a-f-]{36}$/);
+  const replay = await page.evaluate(
+    async ({ body, key }) => {
+      const response = await fetch("/api/backend/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+        body,
+      });
+      return { status: response.status, data: await response.json() };
+    },
+    { body: sent.postData()!, key: requestKey },
+  );
+  expect(replay.status).toBe(201);
+  expect(reviewUrl).toBe(`/reviews/${replay.data.id}`);
   await page.screenshot({
     path: testInfo.outputPath("code-review.png"),
     fullPage: true,
@@ -170,8 +199,27 @@ test("real backend workflow, honest failure, private session and responsive edit
     },
   );
   expect(crossOrigin.status).toBe(403);
-  if (await page.getByRole("button", { name: "Open navigation" }).isVisible())
-    await page.getByRole("button", { name: "Open navigation" }).click();
+  const navigationToggle = page.getByRole("button", {
+    name: "Open navigation",
+  });
+  if (await navigationToggle.isVisible()) {
+    await navigationToggle.click();
+    const drawer = page.getByRole("dialog", { name: "Workspace navigation" });
+    await expect(
+      drawer.getByRole("button", { name: "Close navigation" }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      drawer.getByRole("button", { name: "Sign out", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(
+      drawer.getByRole("button", { name: "Close navigation" }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(navigationToggle).toBeFocused();
+    await navigationToggle.click();
+  }
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome back." }),
@@ -180,5 +228,6 @@ test("real backend workflow, honest failure, private session and responsive edit
   await expect(
     page.getByRole("heading", { name: "Welcome back." }),
   ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("session has expired");
   expect(runtimeErrors).toEqual([]);
 });

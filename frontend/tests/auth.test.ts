@@ -111,3 +111,21 @@ it("requires JSON content type", async () => {
   );
   expect(response.status).toBe(415);
 });
+it("rejects malformed backend expiry and never saves the session", async () => {
+  mocks.state.save.mockClear();
+  mocks.upstream.mockResolvedValue(
+    new Response(JSON.stringify({ access_token: "token", expires_in: -1 })),
+  );
+  expect(
+    (
+      await POST(
+        request({
+          action: "login",
+          username: "alice",
+          password: "test-only-password",
+        }),
+      )
+    ).status,
+  ).toBe(503);
+  expect(mocks.state.save).not.toHaveBeenCalled();
+});

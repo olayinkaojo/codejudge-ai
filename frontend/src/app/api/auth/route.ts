@@ -64,7 +64,12 @@ export async function POST(request: NextRequest) {
     if (input.action === "register") return json({ ok: true }, 201);
     if (
       typeof data.access_token !== "string" ||
-      typeof data.expires_in !== "number"
+      !data.access_token ||
+      data.access_token.length > 256 ||
+      typeof data.expires_in !== "number" ||
+      !Number.isFinite(data.expires_in) ||
+      data.expires_in < 1 ||
+      data.expires_in > 2592000
     )
       throw new Error("Invalid login response");
     s.token = data.access_token;

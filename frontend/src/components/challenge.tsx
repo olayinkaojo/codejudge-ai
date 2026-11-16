@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   Info,
   ShieldCheck,
 } from "lucide-react";
+import { createMutation } from "@/lib/mutation";
 import { api, backend } from "@/lib/client";
 import { remember } from "@/lib/history";
 import type { Evaluation, Task } from "@/lib/types";
@@ -25,6 +26,7 @@ const starter =
   "# Explore your solution here.\n# This draft stays in memory until you leave this page.\n\ndef solve():\n    pass\n";
 export function Challenge({ id }: { id: string }) {
   const username = useUsername();
+  const mutation = useRef(createMutation());
   const router = useRouter();
   const [task, setTask] = useState<Task | null>(null);
   const [error, setError] = useState("");
@@ -68,13 +70,10 @@ export function Challenge({ id }: { id: string }) {
     setBusy(true);
     setError("");
     try {
-      const result = await api<Evaluation>(`${backend}/evaluations`, {
-        method: "POST",
-        body: JSON.stringify({
-          task_id: task.id,
-          submission_reference: reference,
-        }),
-      });
+      const result = await mutation.current<Evaluation>(
+        `${backend}/evaluations`,
+        { task_id: task.id, submission_reference: reference },
+      );
       const saved = remember(username, {
         id: result.id,
         taskId: task.id,
@@ -97,7 +96,16 @@ export function Challenge({ id }: { id: string }) {
       </Link>
       {error && <ErrorNotice message={error} />}
       {!task ? (
-        !error && <Loading />
+        !error ? (
+          <Loading />
+        ) : (
+          <button
+            className="button secondary"
+            onClick={() => window.location.reload()}
+          >
+            Retry loading challenge
+          </button>
+        )
       ) : (
         <>
           <div className="editor-heading">
@@ -173,7 +181,11 @@ export function Challenge({ id }: { id: string }) {
                 first.
               </p>
             </div>
-            <form onSubmit={evaluate} className="submission-form">
+            <form
+              onSubmit={evaluate}
+              className="submission-form"
+              aria-busy={busy}
+            >
               <label>
                 Existing artifact ID
                 <input

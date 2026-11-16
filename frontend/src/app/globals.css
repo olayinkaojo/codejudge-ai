@@ -7,7 +7,7 @@
 :root {
   color-scheme: light;
   --ink: #19312f;
-  --muted: #71817f;
+  --muted: #556b65;
   --border: #e4eae7;
   --mint: #d2f2dd;
   --paper: #f7f9f6;
@@ -2214,4 +2214,135 @@ textarea {
     padding: 18px;
     gap: 12px;
   }
+}
+
+/* Phase 6: preserve the sage workspace while improving readability and touch use. */
+.password-field {
+  display: block;
+  position: relative;
+}
+.password-field input {
+  padding-right: 52px;
+}
+.password-toggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #365748;
+  background: transparent;
+}
+.password-toggle:hover {
+  background: #edf3ee;
+}
+.connection-note {
+  font-size: 13px;
+  line-height: 1.7;
+  background: #edf3ee;
+  color: #365748;
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-wrap: anywhere;
+}
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid #36765b;
+  outline-offset: 4px;
+}
+:where(h1, h2, h3, h4, .review-history-card strong) {
+  overflow-wrap: anywhere;
+}
+.review-history-card > svg,
+.error-notice > svg {
+  flex-shrink: 0;
+}
+.review-history-card:focus-visible {
+  border-color: #36765b;
+  background: #f4f8f3;
+}
+.review-content h3 {
+  scroll-margin-top: 24px;
+}
+.loading .field-help {
+  display: block;
+  max-width: 48ch;
+  line-height: 1.7;
+  margin-top: 8px;
+}
+@media (max-width: 1150px) and (min-width: 641px) {
+  .review-notes {
+    gap: 20px;
+  }
+  .coding-layout {
+    gap: 20px;
+  }
+}
+@media (max-width: 640px) {
+  .button,
+  .icon-button,
+  .editor-mode,
+  .download-button {
+    min-height: 44px;
+  }
+  .icon-button {
+    min-width: 44px;
+  }
+  .page-heading p,
+  .hero-copy p,
+  .field-help,
+  .auth-security {
+    font-size: 13px;
+    line-height: 1.75;
+  }
+  .eyebrow {
+    font-size: 10px;
+  }
+  .review-meta {
+    gap: 8px 12px;
+  }
+  .review-pagination {
+    gap: 10px;
+  }
+  .review-pagination .button {
+    flex: 1;
+  }
+  .review-panel .review-notes {
+    gap: 12px;
+  }
+  .review-history-card {
+    align-items: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+}
+.field-help,
+.auth-switch,
+.auth-security,
+.auth-panel-footer {
+  color: #586c5d;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #66766b;
+  opacity: 1;
+}
+
+.nav-close {
+  margin-left: auto;
+  margin-bottom: 12px;
+  min-width: 44px;
+  min-height: 44px;
 }

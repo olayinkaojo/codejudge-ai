@@ -7,3 +7,17 @@ __pycache__
 .coverage
 htmlcov
 frontend/
+.env.*
+backups/
+*.pgdump*
+*.dump
+*.sql
+*.sql.gz
+*.gpg
+*.asc
+*.pgpass
+.pgpass
+.pg_service.conf
+*.key
+*.pem
+.gnupg/

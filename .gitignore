@@ -18,3 +18,18 @@ playwright-report/
 test-results/
 frontend/next-env.d.ts
 frontend/AGENTS.md
+
+# Backups and credentials must live outside the checkout, even when encrypted.
+backups/
+*.pgdump*
+*.dump
+*.sql
+*.sql.gz
+*.gpg
+*.asc
+*.pgpass
+.pgpass
+.pg_service.conf
+*.key
+*.pem
+.gnupg/

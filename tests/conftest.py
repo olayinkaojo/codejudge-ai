@@ -2,7 +2,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -28,6 +28,19 @@ def factory():
     # TEST_DATABASE_URL must refer to a dedicated disposable test database.
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    # Unit-test fixture only: handcrafted schema needs an explicit revision marker.
+    # Production uses app.migrate and never stamps/recreates an existing schema.
+    from app.database_status import expected_heads
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
+        )
+        connection.execute(text("DELETE FROM alembic_version"))
+        connection.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES (:head)"),
+            {"head": next(iter(expected_heads()))},
+        )
     factory = sessionmaker(engine, expire_on_commit=False)
     yield factory
     Base.metadata.drop_all(engine)

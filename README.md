@@ -214,3 +214,12 @@ production image and runs the Compose smoke workflow. Tests cover authentication
 validation, durable queue transitions, bounded retries, invalid runner output,
 crash recovery, stale writes, and real PostgreSQL concurrent/locked claims. Runner
 responses in tests are simulated; live hostile-code sandboxing is not claimed.
+
+## Web workspace
+
+The Next.js/TypeScript frontend lives in [`frontend/`](frontend/README.md). It
+provides registration/login, a responsive challenge dashboard, a self-hosted Monaco
+Python editor, browser-local evaluation history, and detailed results. It uses
+server-managed encrypted HttpOnly cookies and the existing FastAPI contracts.
+Source uploads and server-wide evaluation history are not supported by the current
+API; the frontend documents and respects those boundaries.

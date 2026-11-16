@@ -7,3 +7,14 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+
+node_modules/
+.next/
+*.tsbuildinfo
+.env.*
+!.env.example
+frontend/coverage/
+playwright-report/
+test-results/
+frontend/next-env.d.ts
+frontend/AGENTS.md

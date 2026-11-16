@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ScanText, ArrowRight, ShieldCheck } from "lucide-react";
+import { createMutation } from "@/lib/mutation";
 import { api, backend } from "@/lib/client";
 import { reviewError, type CodeReview, type ReviewConfig } from "@/lib/reviews";
 import { date, Empty, ErrorNotice, Loading, PageHeading } from "./ui";
@@ -112,6 +113,7 @@ export function ReviewAction({
   taskId: string;
   source: string;
 }) {
+  const mutation = useRef(createMutation());
   const [config, setConfig] = useState<ReviewConfig | null>(null);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -142,14 +144,11 @@ export function ReviewAction({
     setReview(null);
     try {
       setReview(
-        await api<CodeReview>(`${backend}/reviews`, {
-          method: "POST",
-          body: JSON.stringify({
-            task_id: taskId,
-            source,
-            language: "python",
-            external_consent: consent,
-          }),
+        await mutation.current<CodeReview>(`${backend}/reviews`, {
+          task_id: taskId,
+          source,
+          language: "python",
+          external_consent: consent,
         }),
       );
     } catch (e) {
@@ -159,7 +158,7 @@ export function ReviewAction({
     }
   }
   return (
-    <section className="review-panel" aria-label="Code review">
+    <section className="review-panel" aria-label="Code review" aria-busy={busy}>
       <div className="review-panel-heading">
         <div>
           <div className="eyebrow">A SECOND LOOK</div>
@@ -301,7 +300,7 @@ export function ReviewHistory() {
           </Link>
         </Empty>
       )}
-      <div className="review-history">
+      <div className="review-history" aria-label="Saved code reviews">
         {reviews?.map((item) => (
           <Link
             className="review-history-card"
@@ -316,7 +315,8 @@ export function ReviewHistory() {
                   : "External AI Python review"}
               </strong>
               <p className="muted">
-                {date(item.created_at)} · {item.status}
+                <time dateTime={item.created_at}>{date(item.created_at)}</time>{" "}
+                · {item.status}
               </p>
               <span className="field-help">
                 {item.result?.findings.length ?? "—"} findings · No execution
@@ -327,7 +327,7 @@ export function ReviewHistory() {
         ))}
       </div>
       {reviews && (
-        <div className="review-pagination">
+        <nav className="review-pagination" aria-label="Review history pages">
           <button
             className="button secondary"
             disabled={offset === 0}
@@ -335,7 +335,9 @@ export function ReviewHistory() {
           >
             Previous
           </button>
-          <span className="muted">Page {offset / 20 + 1}</span>
+          <span className="muted" aria-live="polite" aria-atomic="true">
+            Page {offset / 20 + 1}
+          </span>
           <button
             className="button secondary"
             disabled={reviews.length < 20 || offset >= 10000}
@@ -343,7 +345,7 @@ export function ReviewHistory() {
           >
             Next
           </button>
-        </div>
+        </nav>
       )}
     </>
   );
@@ -399,6 +401,7 @@ export function ReviewDetails({ id }: { id: string }) {
       {!review && !error && <Loading />}
       {review && (
         <section className="review-panel">
+          <h2>Saved feedback</h2>
           <ReviewContent review={review} />
           {review.task_id && (
             <Link className="text-link" href={`/challenges/${review.task_id}`}>

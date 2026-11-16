@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -18,6 +18,7 @@ from app.auth import (
 )
 from app.database_status import check_database, report_failure
 from app.db import get_db
+from app.idempotency import replay, resource_id
 from app.middleware import BodyLimitMiddleware
 from app.models import Evaluation, Task, Token, User
 from app.reviews import router as review_router
@@ -106,8 +107,16 @@ def owned(db, model, item_id, user):
 
 
 @app.post("/tasks", status_code=201, response_model=TaskOut)
-def create_task(payload: TaskCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    task = Task(owner_id=user.id, **payload.model_dump())
+def create_task(
+    payload: TaskCreate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+    request_id: UUID | None = Header(default=None, alias="Idempotency-Key"),
+):
+    existing = replay(db, Task, request_id, user.id, payload.model_dump())
+    if existing is not None:
+        return existing
+    task = Task(owner_id=user.id, **resource_id(request_id), **payload.model_dump())
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -137,10 +146,16 @@ def get_task(task_id: UUID, user: User = Depends(current_user), db: Session = De
 
 @app.post("/evaluations", status_code=202, response_model=EvaluationOut)
 def create_evaluation(
-    payload: EvaluationCreate, user: User = Depends(current_user), db: Session = Depends(get_db)
+    payload: EvaluationCreate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+    request_id: UUID | None = Header(default=None, alias="Idempotency-Key"),
 ):
     owned(db, Task, payload.task_id, user)
-    evaluation = Evaluation(owner_id=user.id, **payload.model_dump())
+    existing = replay(db, Evaluation, request_id, user.id, payload.model_dump())
+    if existing is not None:
+        return existing
+    evaluation = Evaluation(owner_id=user.id, **resource_id(request_id), **payload.model_dump())
     db.add(evaluation)
     db.commit()
     db.refresh(evaluation)

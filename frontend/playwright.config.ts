@@ -1,4 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
+const base = new URL(process.env.E2E_BASE_URL || "http://localhost:3000");
+for (const target of [
+  base,
+  new URL(process.env.BACKEND_URL || "http://127.0.0.1:8000"),
+]) {
+  if (
+    target.protocol !== "http:" ||
+    !["localhost", "127.0.0.1"].includes(target.hostname) ||
+    target.username ||
+    target.password
+  )
+    throw new Error(
+      "Browser tests create records: use loopback HTTP frontend/backend URLs only.",
+    );
+}
 export default defineConfig({
   testDir: "./e2e",
   timeout: 90000,
@@ -6,7 +21,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   use: {
-    baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
+    baseURL: base.origin,
     trace: "retain-on-failure",
     ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
       ? {
@@ -17,14 +32,21 @@ export default defineConfig({
       : {}),
   },
   webServer: {
-    env: { APP_ORIGIN: "http://localhost:3000" },
-    command: "npm run dev -- --hostname 0.0.0.0",
-    url: `${process.env.E2E_BASE_URL || "http://localhost:3000"}/login`,
+    env: { APP_ORIGIN: base.origin },
+    command: `npm run dev -- --hostname 0.0.0.0 --port ${base.port || "80"}`,
+    url: `${base.origin}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "tablet",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 768, height: 1024 },
+      },
+    },
     {
       name: "mobile",
       use: { ...devices["iPhone 13"], browserName: "chromium" },

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -11,6 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { createMutation } from "@/lib/mutation";
 import { api, backend } from "@/lib/client";
 import { readHistory } from "@/lib/history";
 import type { Task } from "@/lib/types";
@@ -19,6 +20,7 @@ import { useUsername } from "./workspace";
 import { date, Empty, ErrorNotice, Loading, PageHeading } from "./ui";
 export function Dashboard() {
   const username = useUsername();
+  const mutation = useRef(createMutation());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [historyCount, setHistoryCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -82,13 +84,10 @@ export function Dashboard() {
     setSaving(true);
     setFormError("");
     try {
-      await api(`${backend}/tasks`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: data.get("title"),
-          description: data.get("description"),
-          max_score: Number(data.get("max_score")),
-        }),
+      await mutation.current(`${backend}/tasks`, {
+        title: data.get("title"),
+        description: data.get("description"),
+        max_score: Number(data.get("max_score")),
       });
       setCreating(false);
       await load();

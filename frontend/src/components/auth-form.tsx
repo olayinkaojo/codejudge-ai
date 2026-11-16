@@ -121,8 +121,11 @@ export function AuthForm({
           {created ? (
             <div className="success-notice" role="status">
               <Check />
-              <h3>Your account is ready.</h3>
-              <p>Sign in to start your first challenge.</p>
+              <h3>Registration request processed.</h3>
+              <p>
+                If the username was available, your account was created. Already
+                registered? Sign in with your existing password.
+              </p>
               <Link href="/login" className="button primary">
                 Continue to sign in <ArrowRight size={16} />
               </Link>

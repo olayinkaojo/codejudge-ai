@@ -97,3 +97,17 @@ class CodeReview(Base):
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AuthRateSecret(Base):
+    __tablename__ = "auth_rate_secrets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    secret: Mapped[str] = mapped_column(String(64))
+
+
+class AuthRateBucket(Base):
+    __tablename__ = "auth_rate_buckets"
+    __table_args__ = (CheckConstraint("hits >= 1"),)
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    hits: Mapped[int] = mapped_column(Integer)
+    reset_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

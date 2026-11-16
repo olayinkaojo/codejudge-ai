@@ -28,6 +28,18 @@ test("cold-start sign-in failure is recoverable and announced without a false lo
   await expect(
     page.getByRole("button", { name: "Sign in to workspace" }),
   ).toBeEnabled();
+  await page.unroute("**/api/auth");
+  await page.route("**/api/auth", (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { "Retry-After": "60" },
+      json: { detail: "Too many authentication attempts. Try again later." },
+    }),
+  );
+  await page.getByRole("button", { name: "Sign in to workspace" }).click();
+  await expect(page.locator("form").getByRole("alert")).toContainText(
+    "Try again in 60 seconds",
+  );
   await expect(page).toHaveURL(/\/login/);
   expect(
     await page.evaluate(

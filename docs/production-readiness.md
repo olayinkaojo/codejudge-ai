@@ -76,15 +76,15 @@ supported PostgreSQL deployment. No database migration is needed.
 
 These checks do not prove production readiness on their own:
 
-1. **Authentication abuse controls:** registration/login do not yet have durable
-   per-IP throttling or an account-recovery flow. Scrypt consumes CPU; review budgets
-   do not protect login. Before a broader public launch, review free-tier-compatible
-   edge/app abuse controls and load expectations. Do not claim brute-force/DoS
-   protection from replay keys. This release does not invent an unreliable
-   process-local distributed limiter or add a schema purely for the polish work.
+1. **Authentication abuse controls:** Phase 6B adds PostgreSQL admission limits,
+   shared-source/username budgets and generic registration responses; see
+   [the policy and remaining tradeoffs](authentication-security.md). Review defaults,
+   deployment/proxy trust and load behavior before launch. Rate limiting is not
+   complete botnet/DoS protection; account recovery/MFA remain outside this work.
 2. **Free-tier availability/data durability:** Render cold starts can exceed the BFF
    deadline. Manual retry is deliberate. Verify current provider DB lifecycle,
-   storage, backup/export/restore capabilities and capacity; no paid upgrade or
+   storage, backup/export/restore capabilities and capacity; use the
+   [encrypted backup and synthetic recovery-drill guide](database-protection.md); no paid upgrade or
    backup guarantee is assumed. Opportunistic review purge is not a deletion SLA.
 3. **Production-only settings:** verify existing HTTPS origins, SESSION_PASSWORD
    quality, DB TLS, log retention and secret rotation process through the authorized
@@ -150,7 +150,7 @@ local success is not a claim that remote CI or production verification ran.
 
 - [ ] Review the feature branch/draft PR and inspect CI results; do not merge/deploy automatically.
 - [ ] Resolve or explicitly accept the remaining risks above, especially authentication abuse and free-tier DB recovery.
-- [ ] Confirm current PostgreSQL revision is `b5cbbc4049b7` and `/ready` is healthy; this phase adds no revision.
+- [ ] Confirm the approved release migration revision and `/ready` health. Phase 6B adds `f6b20261116`; do not apply it to production without approval.
 - [ ] Confirm production AI is disabled and Phase 3 runner configuration remains disabled; never enable either during this rollout.
 - [ ] Have an authorized operator verify existing HTTPS/session/origin/DB TLS settings without sharing secret values in issues or logs.
 - [ ] Confirm backup/export and restore procedure, rollback image refs, retention and log policies.

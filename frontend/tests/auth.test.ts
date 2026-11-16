@@ -129,3 +129,24 @@ it("rejects malformed backend expiry and never saves the session", async () => {
   ).toBe(503);
   expect(mocks.state.save).not.toHaveBeenCalled();
 });
+
+it("preserves safe auth Retry-After guidance without credentials", async () => {
+  mocks.upstream.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        detail: "Too many authentication attempts. Try again later.",
+      }),
+      { status: 429, headers: { "Retry-After": "60" } },
+    ),
+  );
+  const response = await POST(
+    request({
+      action: "login",
+      username: "alice",
+      password: "synthetic-only-password",
+    }),
+  );
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("60");
+  expect(await response.text()).not.toContain("synthetic-only-password");
+});

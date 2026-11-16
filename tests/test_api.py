@@ -126,7 +126,7 @@ def test_invalid_credentials(client, auth):
                 "password": "correct horse battery staple",
             },
         ).status_code
-        == 409
+        == 201
     )
     for username in ["alice", "unknown"]:
         r = client.post("/auth/token", json={"username": username, "password": "a wrong password"})

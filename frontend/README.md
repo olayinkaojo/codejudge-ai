@@ -186,3 +186,13 @@ managed cloud Chromium, set `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium` if need
 See [the audit/checklist](../docs/production-readiness.md) for production limitations
 and release/rollback requirements. No production environment changes are needed
 for these UI improvements.
+
+## Authentication hardening (Phase 6B)
+
+Registration now reports a generic processed request for new/existing usernames,
+without an existence-specific status or returned account ID. Existing passwords
+are never replaced; sign in with the original password for an existing account.
+The BFF keeps its session/origin boundaries and passes bounded numeric auth
+Retry-After guidance to the UI. It does not forward arbitrary browser IP headers.
+See [authentication admission policy](../docs/authentication-security.md) for the
+shared-network tradeoffs and reviewed proxy configuration requirements.

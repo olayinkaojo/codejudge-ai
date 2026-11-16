@@ -4,7 +4,8 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Match the supported PostgreSQL 16 client packages; avoid floating runner OS changes.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
@@ -22,6 +23,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_test
       TEST_DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_test
       MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_migration_test
+      BACKUP_TEST_DATABASE_URL: postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,6 +32,11 @@ jobs:
           cache: pip
       - run: pip install -r requirements-dev.txt
       - run: pip check
+      - name: Install free backup verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16 gnupg
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - run: ruff check .
       - run: ruff format --check .
       - run: alembic upgrade head
@@ -53,7 +60,7 @@ jobs:
       - if: always()
         run: docker compose down -v
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
@@ -82,7 +89,7 @@ jobs:
       - run: alembic upgrade head
       - name: Start API and worker
         run: |
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/codejudge-ui-api.log 2>&1 &
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers > /tmp/codejudge-ui-api.log 2>&1 &
           python -m app.worker > /tmp/codejudge-ui-worker.log 2>&1 &
           python - <<'PY'
           import time, urllib.request

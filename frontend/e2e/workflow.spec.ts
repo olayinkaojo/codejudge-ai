@@ -14,7 +14,7 @@ test("real backend workflow, honest failure, private session and responsive edit
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();
-  await expect(page.getByText("Your account is ready.")).toBeVisible();
+  await expect(page.getByText("Registration request processed.")).toBeVisible();
   await page.getByRole("link", { name: "Continue to sign in" }).click();
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);

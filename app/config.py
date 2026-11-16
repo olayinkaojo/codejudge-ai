@@ -32,6 +32,27 @@ class Settings(BaseSettings):
     review_user_daily_limit: int = Field(default=20, ge=1, le=100)
     review_global_daily_limit: int = Field(default=200, ge=1, le=1000)
 
+    auth_global_per_minute: int = Field(default=20, ge=2, le=1000)
+    auth_register_per_minute: int = Field(default=10, ge=1, le=100)
+    auth_network_logins: int = Field(default=100, ge=5, le=1000)
+    auth_network_registrations: int = Field(default=60, ge=2, le=1000)
+    auth_pair_logins: int = Field(default=6, ge=2, le=100)
+    auth_trusted_proxy_cidrs: str = Field(default="", max_length=1024)
+
+    @field_validator("auth_trusted_proxy_cidrs")
+    @classmethod
+    def trusted_proxies(cls, value):
+        from ipaddress import ip_network
+
+        for entry in filter(None, value.split(",")):
+            try:
+                network = ip_network(entry.strip(), strict=True)
+                if network.prefixlen == 0:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError("Trusted proxies require explicit CIDRs; trust-all is forbidden") from None
+        return value
+
     token_hours: int = Field(default=24, ge=1, le=720)
     sandbox_url: str | None = None
     sandbox_token: SecretStr | None = None

@@ -3,9 +3,23 @@ export interface Task {
   title: string;
   description: string;
   max_score: number;
+  test_suite_id: string | null;
   created_at: string;
 }
 export type EvaluationStatus = "queued" | "running" | "succeeded" | "failed";
+export interface TestSuite {
+  id: string;
+  title: string;
+  description: string;
+  test_count: number;
+}
+export interface CaseResult {
+  id: string;
+  label: string;
+  status: "passed" | "failed";
+  reason: string | null;
+  duration_ms: number;
+}
 export interface Evaluation {
   id: string;
   task_id: string;
@@ -15,6 +29,7 @@ export interface Evaluation {
   tests_total: number | null;
   score: number | null;
   feedback: string | null;
+  case_results?: CaseResult[] | null;
   error: string | null;
   created_at: string;
   completed_at: string | null;
@@ -40,6 +55,8 @@ export function errorMessage(error: string | null) {
     sandbox_http_error: "The runner returned an error.",
     invalid_sandbox_result:
       "The runner returned a result that could not be accepted.",
+    invalid_submission_or_suite:
+      "This legacy submission or challenge is not compatible with the current runner. Create a new challenge with a test suite.",
     retry_limit_exceeded:
       "The evaluation could not finish within the allowed attempts.",
   };

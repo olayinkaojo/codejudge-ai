@@ -5,6 +5,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
+from app.catalog import suites
 from app.config import Settings
 from app.models import Evaluation, now
 from app.schemas import SandboxResult
@@ -12,13 +13,13 @@ from app.worker import claim, finish, run_once
 
 
 @pytest.fixture
-def queued(client, auth, task):
+def queued(client, auth, task, submission):
     return client.post(
         "/evaluations",
         headers=auth,
         json={
             "task_id": task["id"],
-            "submission_reference": "artifact-1",
+            "submission_reference": submission["id"],
         },
     ).json()
 
@@ -32,17 +33,37 @@ def stored(factory):
         return db.scalar(select(Evaluation))
 
 
+def runner_result(passed=3, total=4, feedback="Passed 3 tests"):
+    cases = suites()["sum-two-v1"].cases[:total]
+    return {
+        "tests_passed": passed,
+        "tests_total": total,
+        "feedback": feedback,
+        "case_results": [
+            {
+                "id": c.id,
+                "label": c.label,
+                "status": "passed" if i < passed else "failed",
+                "reason": None if i < passed else "wrong_answer",
+                "duration_ms": 1,
+            }
+            for i, c in enumerate(cases)
+        ],
+    }
+
+
 def test_worker_success_and_payload(factory, queued):
     def handler(request):
         import json
 
         assert request.headers["Idempotency-Key"] == queued["id"]
-        assert json.loads(request.content) == {
-            "evaluation_id": queued["id"],
-            "task_id": queued["task_id"],
-            "submission_reference": "artifact-1",
-        }
-        return httpx.Response(200, json={"tests_passed": 3, "tests_total": 4, "feedback": "Passed 3 tests"})
+        payload = json.loads(request.content)
+        assert payload["evaluation_id"] == queued["id"]
+        assert payload["task_id"] == queued["task_id"]
+        assert payload["submission_reference"] == queued["submission_reference"]
+        assert payload["source"].startswith("a,b=")
+        assert payload["suite"]["id"] == "sum-two-v1"
+        return httpx.Response(200, json=runner_result())
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         assert run_once(factory, settings(), client)
@@ -96,6 +117,9 @@ def test_bounded_retries(factory, queued, mode):
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         for _ in range(3):
             assert run_once(factory, settings(), client)
+            assert not run_once(factory, settings(), client)
+            with factory.begin() as db:
+                db.scalar(select(Evaluation)).available_at = now() - timedelta(seconds=1)
         assert not run_once(factory, settings(), client)
     row = stored(factory)
     assert row.status == "failed" and row.attempts == 3
@@ -109,7 +133,7 @@ def test_expired_lease_and_stale_worker(factory, queued):
         row.lease_until = now() - timedelta(seconds=1)
     new = claim(factory, settings())
     assert new.id == old.id and new.claim_token != old.claim_token
-    result = SandboxResult(tests_passed=2, tests_total=3)
+    result = SandboxResult.model_validate(runner_result(2, 3))
     assert not finish(factory, old, result=result)
     assert finish(factory, new, result=result)
     assert stored(factory).score == Decimal("66.67")
@@ -153,7 +177,7 @@ def test_runner_authentication(factory, queued):
     def handler(request):
         assert request.headers["Authorization"] == "Bearer runner-credential"
         assert request.headers["Accept-Encoding"] == "identity"
-        return httpx.Response(200, json={"tests_passed": 0, "tests_total": 1})
+        return httpx.Response(200, json=runner_result(0))
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         run_once(factory, settings(sandbox_token=SecretStr("runner-credential")), client)

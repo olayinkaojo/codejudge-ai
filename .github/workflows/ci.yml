@@ -32,8 +32,19 @@ jobs:
       - run: alembic upgrade head
       - run: alembic check
       - run: alembic downgrade base && alembic upgrade head
+      - name: Validate migration of populated legacy rows
+        run: |
+          python - <<'PY'
+          from sqlalchemy import create_engine, text
+          from app.config import get_settings
+          with create_engine(get_settings().database_url, isolation_level='AUTOCOMMIT').connect() as db:
+              db.execute(text('CREATE DATABASE codejudge_migration_test'))
+          PY
+          DATABASE_URL=postgresql+psycopg://codejudge:codejudge@localhost:5432/codejudge_migration_test python -m scripts.validate_migrations
       - run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=85
       - run: docker build --target production -t codejudge:ci .
+      - run: docker build -t codejudge-python:ci runner/guest
+      # Building the guest image is not execution admission; default hosted CI never runs submissions.
       - run: docker compose config --quiet
       - run: docker compose up --build -d --wait
       - run: python scripts/smoke.py --restart-api

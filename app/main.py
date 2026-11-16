@@ -16,10 +16,19 @@ from app.auth import (
     token_digest,
     verify_password,
 )
+from app.catalog import suites
 from app.db import get_db
 from app.middleware import BodyLimitMiddleware
-from app.models import Evaluation, Task, Token, User
-from app.schemas import Credentials, EvaluationCreate, EvaluationOut, TaskCreate, TaskOut
+from app.models import Evaluation, Submission, Task, Token, User
+from app.schemas import (
+    Credentials,
+    EvaluationCreate,
+    EvaluationOut,
+    SubmissionCreate,
+    SubmissionOut,
+    TaskCreate,
+    TaskOut,
+)
 
 app = FastAPI(title="CodeJudge AI", version="1.0.0")
 app.add_middleware(BodyLimitMiddleware)
@@ -53,6 +62,9 @@ def health():
 def ready(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1 FROM users LIMIT 1"))
+        db.execute(select(Task.suite_spec).limit(0))
+        db.execute(select(Submission.id).limit(0))
+        db.execute(select(Evaluation.case_results, Evaluation.available_at).limit(0))
     except SQLAlchemyError:
         raise HTTPException(503, "Database unavailable") from None
     return {"status": "ready"}
@@ -95,7 +107,12 @@ def owned(db, model, item_id, user):
 
 @app.post("/tasks", status_code=201, response_model=TaskOut)
 def create_task(payload: TaskCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    task = Task(owner_id=user.id, **payload.model_dump())
+    suite = None
+    if payload.test_suite_id:
+        suite = suites().get(payload.test_suite_id)
+        if suite is None:
+            raise HTTPException(422, "Unknown test suite")
+    task = Task(owner_id=user.id, suite_spec=suite.model_dump() if suite else None, **payload.model_dump())
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -127,7 +144,16 @@ def get_task(task_id: UUID, user: User = Depends(current_user), db: Session = De
 def create_evaluation(
     payload: EvaluationCreate, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    owned(db, Task, payload.task_id, user)
+    task = owned(db, Task, payload.task_id, user)
+    if not task.suite_spec:
+        raise HTTPException(409, "This challenge has no configured test suite")
+    try:
+        reference = UUID(payload.submission_reference)
+    except ValueError:
+        raise HTTPException(404, "Submission not found") from None
+    submission = owned(db, Submission, reference, user)
+    if submission.task_id != task.id:
+        raise HTTPException(422, "Submission belongs to another challenge")
     evaluation = Evaluation(owner_id=user.id, **payload.model_dump())
     db.add(evaluation)
     db.commit()
@@ -138,3 +164,30 @@ def create_evaluation(
 @app.get("/evaluations/{evaluation_id}", response_model=EvaluationOut)
 def get_evaluation(evaluation_id: UUID, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return owned(db, Evaluation, evaluation_id, user)
+
+
+@app.get("/test-suites")
+def list_test_suites(user: User = Depends(current_user)):
+    return [
+        {
+            "id": suite.id,
+            "title": suite.title,
+            "description": suite.description,
+            "test_count": len(suite.cases),
+        }
+        for suite in suites().values()
+    ]
+
+
+@app.post("/submissions", status_code=201, response_model=SubmissionOut)
+def create_submission(
+    payload: SubmissionCreate, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    task = owned(db, Task, payload.task_id, user)
+    if not task.suite_spec:
+        raise HTTPException(409, "This challenge has no configured test suite")
+    submission = Submission(owner_id=user.id, **payload.model_dump())
+    db.add(submission)
+    db.commit()
+    db.refresh(submission)
+    return submission

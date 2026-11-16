@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 
 @lru_cache
 def session_factory():
-    engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+    engine = create_engine(get_settings().database_url, pool_pre_ping=True, hide_parameters=True)
     return sessionmaker(engine, expire_on_commit=False)
 
 

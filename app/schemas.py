@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
+from contracts.evaluation import CaseResult, RunResult
+
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -29,11 +31,12 @@ class TaskCreate(Input):
     title: str = Field(min_length=3, max_length=150)
     description: str = Field(min_length=10, max_length=20000)
     max_score: int = Field(default=100, ge=1, le=1000, strict=True)
+    test_suite_id: str | None = Field(default=None, pattern=r"^[a-z0-9_-]{1,80}$")
 
 
 class EvaluationCreate(Input):
     task_id: UUID
-    # Opaque artifact ID, never a URL/path to fetch or command to execute.
+    # Immutable submission reference; no URLs, filesystem paths, or commands.
     submission_reference: str = Field(min_length=1, max_length=256, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
 
 
@@ -43,6 +46,7 @@ class TaskOut(BaseModel):
     title: str
     description: str
     max_score: int
+    test_suite_id: str | None
     created_at: datetime
 
 
@@ -56,19 +60,31 @@ class EvaluationOut(BaseModel):
     tests_total: int | None
     score: float | None
     feedback: str | None
+    case_results: list[CaseResult] | None
     error: str | None
     created_at: datetime
     completed_at: datetime | None
 
 
-class SandboxResult(Input):
-    tests_passed: int = Field(ge=0, le=1000000, strict=True)
-    tests_total: int = Field(gt=0, le=1000000, strict=True)
-    feedback: str = Field(default="", max_length=10000)
+class SubmissionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: UUID
+    source: str = Field(min_length=1, max_length=16000, strict=True)
 
-    @field_validator("tests_total")
+    @field_validator("source")
     @classmethod
-    def valid_counts(cls, value, info):
-        if info.data.get("tests_passed", 0) > value:
-            raise ValueError("tests_passed cannot exceed tests_total")
+    def source_size(cls, value):
+        if "\x00" in value or len(value.encode("utf-8")) > 32768:
+            raise ValueError("source must be NUL-free and at most 32768 UTF-8 bytes")
         return value
+
+
+class SubmissionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    task_id: UUID
+    created_at: datetime
+
+
+# Backwards-compatible import name; the Phase 3 response now requires structured cases.
+SandboxResult = RunResult

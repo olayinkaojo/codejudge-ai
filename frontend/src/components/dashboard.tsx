@@ -13,12 +13,13 @@ import {
 } from "lucide-react";
 import { api, backend } from "@/lib/client";
 import { readHistory } from "@/lib/history";
-import type { Task } from "@/lib/types";
+import type { Task, TestSuite } from "@/lib/types";
 import { Dialog } from "./dialog";
 import { useUsername } from "./workspace";
 import { date, Empty, ErrorNotice, Loading, PageHeading } from "./ui";
 export function Dashboard() {
   const username = useUsername();
+  const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [historyCount, setHistoryCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,7 @@ export function Dashboard() {
           title: data.get("title"),
           description: data.get("description"),
           max_score: Number(data.get("max_score")),
+          test_suite_id: data.get("test_suite_id") || null,
         }),
       });
       setCreating(false);
@@ -98,6 +100,17 @@ export function Dashboard() {
       setSaving(false);
     }
   }
+  useEffect(() => {
+    let active = true;
+    api<TestSuite[]>(`${backend}/test-suites`)
+      .then((data) => {
+        if (active) setTestSuites(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
   const visible = tasks.filter((task) =>
     `${task.title} ${task.description}`
       .toLowerCase()
@@ -322,8 +335,8 @@ export function Dashboard() {
               </button>
             </div>
             <p className="muted">
-              Define a problem for your workspace. Runner test suites are
-              configured separately.
+              Bind your challenge to a versioned automated test suite. Custom
+              descriptions do not change the actual tests.
             </p>
             <form className="form-stack" onSubmit={create}>
               {formError && <ErrorNotice message={formError} />}
@@ -348,6 +361,38 @@ export function Dashboard() {
                   rows={5}
                   placeholder="Explain the problem, inputs, and expected output…"
                 />
+              </label>
+              <label>
+                Automated test suite
+                <select
+                  name="test_suite_id"
+                  defaultValue=""
+                  required
+                  onChange={(event) => {
+                    const selected = testSuites.find(
+                      (suite) => suite.id === event.target.value,
+                    );
+                    const description =
+                      event.currentTarget.form?.elements.namedItem(
+                        "description",
+                      ) as HTMLTextAreaElement | null;
+                    if (selected && description)
+                      description.value = selected.description;
+                  }}
+                >
+                  <option value="" disabled>
+                    Select a test suite
+                  </option>
+                  {testSuites.map((suite) => (
+                    <option key={suite.id} value={suite.id}>
+                      {suite.title} · {suite.test_count} tests
+                    </option>
+                  ))}
+                </select>
+                <span className="field-help">
+                  Selecting a suite fills in its problem statement. If the
+                  catalog is unavailable, close this dialog and reload.
+                </span>
               </label>
               <label>
                 Maximum score

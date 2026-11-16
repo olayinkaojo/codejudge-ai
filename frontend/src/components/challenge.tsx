@@ -21,7 +21,7 @@ const Editor = dynamic(() => import("./python-editor"), {
   loading: () => <Loading label="Preparing your Python editor…" />,
 });
 const starter =
-  "# Explore your solution here.\n# This draft stays in memory until you leave this page.\n\ndef solve():\n    pass\n";
+  "# Read the challenge and use standard input / output.\n# Code is submitted only when you request evaluation.\n\nimport sys\n\n# Write your solution here.\n";
 export function Challenge({ id }: { id: string }) {
   const username = useUsername();
   const router = useRouter();
@@ -29,7 +29,10 @@ export function Challenge({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [source, setSource] = useState(starter);
   const [busy, setBusy] = useState(false);
-  const [reference, setReference] = useState("");
+  const [submission, setSubmission] = useState<{
+    id: string;
+    source: string;
+  } | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   useEffect(() => {
     let active = true;
@@ -63,15 +66,24 @@ export function Challenge({ id }: { id: string }) {
   }
   async function evaluate(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!task || !acknowledged) return;
+    if (!task?.test_suite_id || !acknowledged) return;
     setBusy(true);
     setError("");
     try {
+      let snapshot = submission;
+      if (!snapshot || snapshot.source !== source) {
+        const created = await api<{ id: string }>(`${backend}/submissions`, {
+          method: "POST",
+          body: JSON.stringify({ task_id: task.id, source }),
+        });
+        snapshot = { id: created.id, source };
+        setSubmission(snapshot);
+      }
       const result = await api<Evaluation>(`${backend}/evaluations`, {
         method: "POST",
         body: JSON.stringify({
           task_id: task.id,
-          submission_reference: reference,
+          submission_reference: snapshot.id,
         }),
       });
       const saved = remember(username, {
@@ -166,23 +178,19 @@ export function Challenge({ id }: { id: string }) {
               <div className="eyebrow">READY FOR FEEDBACK?</div>
               <h2>Request an evaluation</h2>
               <p className="muted">
-                The API accepts an artifact ID, not your editor contents. Upload
-                your downloaded solution through your runner’s artifact workflow
-                first.
+                Submit an immutable snapshot of your editor to this challenge’s
+                versioned test suite. Execution is accepted only by a validated
+                isolated runner.
               </p>
             </div>
             <form onSubmit={evaluate} className="submission-form">
-              <label>
-                Existing artifact ID
-                <input
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. solution-artifact-123"
-                  required
-                  maxLength={256}
-                  pattern="[a-zA-Z0-9][a-zA-Z0-9_.\-]*"
-                />
-              </label>
+              {!task.test_suite_id && (
+                <ErrorNotice message="This legacy challenge has no test suite. Create a new challenge with an automated test suite before evaluating code." />
+              )}
+              <div className="field-help">
+                Suite: {task.test_suite_id || "Not configured"} · Python source
+                limit: 16,000 characters / 32 KiB UTF-8
+              </div>
               <label className="checkbox-label">
                 <input
                   type="checkbox"
@@ -191,20 +199,22 @@ export function Challenge({ id }: { id: string }) {
                   required
                 />
                 <span>
-                  I understand this evaluates the referenced artifact, not the
-                  code in this editor.
+                  I consent to storing and evaluating this code snapshot against
+                  the selected challenge tests.
                 </span>
               </label>
               <button
                 className="button primary"
-                disabled={busy || !acknowledged}
+                disabled={
+                  busy || !acknowledged || !task.test_suite_id || !source.trim()
+                }
               >
                 {busy ? "Requesting evaluation…" : "Request evaluation"}
                 <ArrowRight size={17} />
               </button>
               <p className="field-help">
-                Without a configured runner, the job will fail without executing
-                code.
+                Without a configured, validated gVisor runner, the job fails
+                closed. No execution or successful score is simulated.
               </p>
             </form>
           </section>

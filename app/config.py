@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     token_hours: int = Field(default=24, ge=1, le=720)
     sandbox_url: str | None = None
     sandbox_token: SecretStr | None = None
-    sandbox_timeout: int = Field(default=30, ge=1, le=120)
+    sandbox_timeout: int = Field(default=75, ge=1, le=120)
     lease_seconds: int = Field(default=180, ge=150, le=3600)
     max_attempts: int = Field(default=3, ge=1, le=10)
     allow_insecure_sandbox: bool = False

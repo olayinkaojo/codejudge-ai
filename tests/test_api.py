@@ -15,7 +15,7 @@ def test_health(client):
     assert client.get("/openapi.json").status_code == 200
 
 
-def test_task_and_evaluation(client, auth, task):
+def test_task_and_evaluation(client, auth, task, submission):
     assert client.get("/tasks/" + task["id"], headers=auth).json() == task
     assert client.get("/tasks", headers=auth).json() == [task]
     result = client.post(
@@ -23,7 +23,7 @@ def test_task_and_evaluation(client, auth, task):
         headers=auth,
         json={
             "task_id": task["id"],
-            "submission_reference": "example-1",
+            "submission_reference": submission["id"],
         },
     )
     assert result.status_code == 202
@@ -72,13 +72,13 @@ def test_auth_required(client, path):
     assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 401
 
 
-def test_ownership(client, auth, task):
+def test_ownership(client, auth, task, submission):
     evaluation = client.post(
         "/evaluations",
         headers=auth,
         json={
             "task_id": task["id"],
-            "submission_reference": "artifact",
+            "submission_reference": submission["id"],
         },
     ).json()
     other = authenticate(client, "bob")
@@ -91,7 +91,7 @@ def test_ownership(client, auth, task):
             headers=other,
             json={
                 "task_id": task["id"],
-                "submission_reference": "artifact",
+                "submission_reference": submission["id"],
             },
         ).status_code
         == 404

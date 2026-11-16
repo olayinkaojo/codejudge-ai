@@ -2070,3 +2070,38 @@ textarea {
 .result-score > span {
   color: #687f55;
 }
+
+select {
+  border: 1px solid #dbe4d7;
+  border-radius: 7px;
+  padding: 12px;
+  background: white;
+  color: #284738;
+  max-width: 100%;
+}
+.case-results {
+  list-style: none;
+  padding: 0;
+  margin-top: 20px;
+}
+.case-results li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 0;
+  border-bottom: 1px solid #e4eae7;
+}
+.case-results li > div {
+  flex: 1;
+}
+.case-results strong {
+  display: block;
+  font-size: 12px;
+}
+.case-results li > div > span,
+.case-results time {
+  font-size: 11px;
+  color: #667c5b;
+  margin-top: 7px;
+  display: block;
+}

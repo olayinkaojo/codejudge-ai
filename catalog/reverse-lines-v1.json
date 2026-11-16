@@ -1,0 +1,11 @@
+{
+  "id":"reverse-lines-v1",
+  "title":"Reverse a line",
+  "description":"Read one line from standard input, remove only its trailing newline, and print the characters in reverse order followed by one newline. Preserve spaces. Example input: hello; expected output: olleh.",
+  "cases":[
+    {"id":"word","label":"A word","stdin":"hello\n","expected":"olleh\n"},
+    {"id":"empty","label":"Empty line","stdin":"\n","expected":"\n"},
+    {"id":"spaces","label":"Preserve spaces","stdin":" a b \n","expected":" b a \n"},
+    {"id":"unicode","label":"Unicode characters","stdin":"café\n","expected":"éfac\n"}
+  ]
+}

@@ -1,0 +1,26 @@
+[Unit]
+Description=CodeJudge authenticated isolated execution controller
+After=codejudge-watchdog.service
+Requires=codejudge-watchdog.service
+
+[Service]
+User=codejudge-runner
+Group=docker
+WorkingDirectory=/opt/codejudge
+EnvironmentFile=/etc/codejudge-runner.env
+StateDirectory=codejudge-runner
+StateDirectoryMode=0700
+UMask=0077
+LimitCORE=0
+# Pre-start validation never bypasses runsc/cgroup/watchdog checks.
+ExecStartPre=/opt/codejudge/.venv/bin/python -m runner.validate
+ExecStart=/opt/codejudge/.venv/bin/python -m uvicorn runner.service:app --host 127.0.0.1 --port 9000 --workers 1 --no-access-log --no-proxy-headers
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/codejudge-runner
+
+[Install]
+WantedBy=multi-user.target

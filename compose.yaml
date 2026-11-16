@@ -55,6 +55,9 @@ services:
       SANDBOX_URL: ${SANDBOX_URL:-}
       SANDBOX_TOKEN: ${SANDBOX_TOKEN:-}
       ALLOW_INSECURE_SANDBOX: ${ALLOW_INSECURE_SANDBOX:-false}
+      SANDBOX_TIMEOUT: ${SANDBOX_TIMEOUT:-75}
+      LEASE_SECONDS: ${LEASE_SECONDS:-180}
+      MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -300,12 +300,12 @@ export function EvaluationDetails({
                   : failed
                     ? "This evaluation couldn’t finish."
                     : evaluation.status === "queued"
-                      ? "Your artifact is in the queue."
-                      : "Your artifact is being evaluated."}
+                      ? "Your submission is in the queue."
+                      : "Your submission is being evaluated."}
               </h2>
               <p>
                 {complete
-                  ? "The configured runner returned these results. They reflect the referenced artifact."
+                  ? "The configured runner returned these results. They reflect the submitted code snapshot."
                   : failed
                     ? errorMessage(evaluation.error)
                     : "This page checks the backend every few seconds. A score appears only after a valid runner result."}
@@ -339,8 +339,9 @@ export function EvaluationDetails({
                     />
                   </div>
                   <p className="muted">
-                    Reported by your external runner. Per-test output is not
-                    provided by the API.
+                    {evaluation.case_results
+                      ? "Reported by the configured evaluation service. Expected answers and raw program output are not exposed."
+                      : "Legacy aggregate result. Per-test details and isolation evidence are not available for this record."}
                   </p>
                 </>
               ) : (
@@ -379,7 +380,7 @@ export function EvaluationDetails({
                   </dd>
                 </div>
                 <div>
-                  <dt>Artifact reference</dt>
+                  <dt>Submission reference</dt>
                   <dd>
                     <code>{evaluation.submission_reference}</code>
                   </dd>
@@ -407,6 +408,36 @@ export function EvaluationDetails({
               </dl>
             </section>
           </div>
+          {complete && evaluation.case_results && (
+            <section
+              className="detail-card feedback-card"
+              aria-label="Per-test results"
+            >
+              <h2>Challenge test results</h2>
+              <p className="muted">
+                Each test runs in a fresh isolated sandbox. Time includes
+                sandbox startup; no raw output or expected answers are returned.
+              </p>
+              <ul className="case-results">
+                {evaluation.case_results.map((test) => (
+                  <li key={test.id}>
+                    <div>
+                      <strong>{test.label}</strong>
+                      <span>
+                        {test.reason?.replaceAll("_", " ") || "Output matched"}
+                      </span>
+                    </div>
+                    <span
+                      className={`badge ${test.status === "passed" ? "succeeded" : "failed"}`}
+                    >
+                      {test.status === "passed" ? "Passed" : "Failed"}
+                    </span>
+                    <time>{test.duration_ms} ms</time>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="detail-card feedback-card">
             <div className="panel-label">
               <ShieldCheck size={18} />
@@ -437,7 +468,8 @@ export function EvaluationDetails({
               <ArrowRight size={16} />
             </Link>
             <p className="muted">
-              Your editor draft is not included in the evaluation record.
+              Results belong to the immutable submitted snapshot. Your local
+              draft is not restored automatically.
             </p>
           </div>
         </>

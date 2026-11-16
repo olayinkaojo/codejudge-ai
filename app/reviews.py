@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user
 from app.config import get_settings
 from app.db import get_db
+from app.idempotency import replay, resource_id
 from app.models import CodeReview, Task, User
 from app.review_provider import ProviderFailure, ReviewResult, review
 
@@ -84,12 +85,32 @@ def configuration(user: User = Depends(current_user)):
 
 
 @router.post("", status_code=201, response_model=ReviewOut)
-def create(payload: ReviewCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def create(
+    payload: ReviewCreate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+    request_id: UUID | None = Header(default=None, alias="Idempotency-Key"),
+):
     settings = get_settings()
     if payload.task_id and not db.scalar(
         select(Task.id).where(Task.id == payload.task_id, Task.owner_id == user.id)
     ):
         raise HTTPException(404, "Resource not found")
+    source_digest = hashlib.sha256(payload.source.encode()).hexdigest()
+    existing = replay(
+        db,
+        CodeReview,
+        request_id,
+        user.id,
+        {"source_digest": source_digest, "task_id": payload.task_id, "language": payload.language},
+    )
+    if existing is not None:
+        expiry = existing.expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry <= clock():
+            raise HTTPException(409, "Review has expired; start a new request")
+        return existing
     if settings.review_provider != "mock":
         if not settings.review_external_enabled or not settings.review_api_key:
             raise HTTPException(503, "External review is not configured")
@@ -124,7 +145,8 @@ def create(payload: ReviewCreate, user: User = Depends(current_user), db: Sessio
     record = CodeReview(
         owner_id=user.id,
         task_id=payload.task_id,
-        source_digest=hashlib.sha256(payload.source.encode()).hexdigest(),
+        source_digest=source_digest,
+        **resource_id(request_id),
         line_count=max(1, len(payload.source.split("\n"))),
         provider=settings.review_provider,
         deadline=now + timedelta(seconds=20),

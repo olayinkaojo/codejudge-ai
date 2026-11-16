@@ -15,8 +15,9 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings, get_settings
 from app.db import session_factory
-from app.models import Evaluation, Task, now
+from app.models import Evaluation, Submission, Task, now
 from app.schemas import SandboxResult
+from contracts.evaluation import RunRequest, Suite
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,13 @@ class Job:
     reference: str
     max_score: int
     attempt: int
+    request: RunRequest
 
 
 def claim(factory: sessionmaker, settings: Settings) -> Job | None:
     timestamp = now()
     eligible = or_(
-        Evaluation.status == "queued",
+        and_(Evaluation.status == "queued", Evaluation.available_at <= timestamp),
         and_(
             Evaluation.status == "running",
             Evaluation.lease_until < timestamp,
@@ -66,8 +68,34 @@ def claim(factory: sessionmaker, settings: Settings) -> Job | None:
             row.lease_until = timestamp + timedelta(seconds=settings.lease_seconds)
             row.error = None
             task = db.get(Task, row.task_id)
+            try:
+                submission = db.get(Submission, UUID(row.submission_reference))
+                if (
+                    submission is None
+                    or submission.task_id != row.task_id
+                    or submission.owner_id != row.owner_id
+                ):
+                    raise ValueError("invalid submission")
+                request = RunRequest(
+                    evaluation_id=row.id,
+                    task_id=row.task_id,
+                    submission_reference=submission.id,
+                    source=submission.source,
+                    suite=Suite.model_validate(task.suite_spec),
+                )
+            except (ValueError, TypeError):
+                row.status, row.error = "failed", "invalid_submission_or_suite"
+                row.completed_at, row.lease_until, row.claim_token = timestamp, None, None
+                db.flush()
+                continue
             return Job(
-                row.id, row.claim_token, row.task_id, row.submission_reference, task.max_score, row.attempts
+                row.id,
+                row.claim_token,
+                row.task_id,
+                row.submission_reference,
+                task.max_score,
+                row.attempts,
+                request,
             )
 
 
@@ -81,10 +109,13 @@ def finish(factory, job, *, result=None, error=None, retry=False):
             tests_total=result.tests_total,
             score=score.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             feedback=result.feedback,
+            case_results=[case.model_dump() for case in result.case_results],
             error=None,
             completed_at=now(),
         )
     else:
+        if retry:
+            values["available_at"] = now() + timedelta(seconds=min(60, 10 * 2**job.attempt))
         values.update(
             status="queued" if retry else "failed", error=error, completed_at=None if retry else now()
         )
@@ -117,11 +148,7 @@ def request_result(client, settings, job):
         "POST",
         settings.sandbox_url,
         headers=headers,
-        json={
-            "evaluation_id": str(job.id),
-            "task_id": str(job.task_id),
-            "submission_reference": job.reference,
-        },
+        json=job.request.model_dump(mode="json"),
     ) as response:
         response.raise_for_status()
         if response.headers.get("Content-Encoding", "identity") != "identity":
@@ -133,7 +160,11 @@ def request_result(client, settings, job):
             data.extend(chunk)
             if len(data) > 65536:
                 raise InvalidResult("response_too_large")
-        return SandboxResult.model_validate_json(bytes(data))
+        result = SandboxResult.model_validate_json(bytes(data))
+        expected = [(case.id, case.label) for case in job.request.suite.cases]
+        if [(case.id, case.label) for case in result.case_results] != expected:
+            raise InvalidResult("suite_result_mismatch")
+        return result
 
 
 def run_once(factory=None, settings=None, client=None):

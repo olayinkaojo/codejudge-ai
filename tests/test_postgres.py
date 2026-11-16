@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_concurrent_workers_claim_distinct_jobs(client, factory, task, auth):
+def test_concurrent_workers_claim_distinct_jobs(client, factory, task, auth, submission):
     ids = set()
     for index in range(4):
         response = client.post(
@@ -23,7 +23,7 @@ def test_concurrent_workers_claim_distinct_jobs(client, factory, task, auth):
             headers=auth,
             json={
                 "task_id": task["id"],
-                "submission_reference": f"artifact-{index}",
+                "submission_reference": submission["id"],
             },
         )
         ids.add(response.json()["id"])
@@ -39,14 +39,14 @@ def test_concurrent_workers_claim_distinct_jobs(client, factory, task, auth):
     assert claim(factory, Settings(_env_file=None)) is None
 
 
-def test_skip_locked_does_not_block_on_other_worker(client, factory, task, auth):
+def test_skip_locked_does_not_block_on_other_worker(client, factory, task, auth, submission):
     for index in range(2):
         client.post(
             "/evaluations",
             headers=auth,
             json={
                 "task_id": task["id"],
-                "submission_reference": f"artifact-{index}",
+                "submission_reference": submission["id"],
             },
         )
     with factory.begin() as db:

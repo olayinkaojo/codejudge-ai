@@ -1,0 +1,11 @@
+{
+  "id": "sum-two-v1",
+  "title": "Sum two integers",
+  "description": "Read two whitespace-separated integers from standard input and print their sum followed by a newline. Python integers may exceed 64 bits. Example input: 2 3; expected output: 5.",
+  "cases": [
+    {"id":"positive","label":"Positive integers","stdin":"2 3\n","expected":"5\n"},
+    {"id":"negative","label":"Negative integers","stdin":"-7 2\n","expected":"-5\n"},
+    {"id":"zero","label":"Zero and whitespace","stdin":" 0\n0 \n","expected":"0\n"},
+    {"id":"large","label":"Large integers","stdin":"1000000000000000000000000000000 1\n","expected":"1000000000000000000000000000001\n"}
+  ]
+}

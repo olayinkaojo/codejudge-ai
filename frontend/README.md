@@ -2,7 +2,7 @@
 
 A responsive Next.js App Router workspace using TypeScript, Tailwind CSS, and a
 self-hosted Monaco Python editor. Requires Node.js 24 and the FastAPI backend from
-`feature/production-backend` (or that branch merged into main).
+`main` including Phase 3 migrations.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ npm run dev
 Open `http://localhost:3000`. Use **localhost**, matching `APP_ORIGIN`; accessing
 through a different hostname requires updating that setting. In this cloud
 workspace npm may need `npm --cache /tmp/codejudge-npm ci` because the default home
-cache is not writable. The backend's cloud Docker CA guidance still applies.
+cache is not writable. Keep TLS verification enabled when configuring cloud package-download trust.
 Create an account and sign in. Accounts start with an empty dashboard; create your
 own challenges. The UI has no seeded results, fake submissions, difficulty labels,
 leaderboards, or fabricated success metrics.
@@ -32,31 +32,41 @@ leaderboards, or fabricated success metrics.
 | Sign in            | `POST /auth/token`; token stays inside the server-managed session cookie                           |
 | Sign out           | `DELETE /auth/token`; only claims success when revocation succeeds or the token is already invalid |
 | Dashboard          | `GET /tasks?limit=20&offset=N`; search applies to loaded challenges                                |
-| Create challenge   | `POST /tasks` with title, description, max_score                                                   |
+| Create challenge   | `POST /tasks` with title, description, max_score, test_suite_id                                    |
 | Challenge          | `GET /tasks/{uuid}`                                                                                |
-| Request evaluation | `POST /evaluations` with task_id and submission_reference; expects 202                             |
+| Test catalog       | `GET /test-suites`; challenge creation binds a versioned suite                                     |
+| Source snapshot    | `POST /submissions` with task_id and source; returns an immutable reference                        |
+| Request evaluation | `POST /evaluations` with task_id and that submission reference; expects 202                        |
 | Result / polling   | `GET /evaluations/{uuid}`; polling every 3 seconds only while queued/running                       |
 
 `/api/auth` and `/api/backend/*` are **Next.js server routes**, not new FastAPI
 endpoints. The proxy only allows the methods/routes above, forwards only known
 pagination parameters, disables redirects/caching, bounds JSON request bodies to
 128 KiB, and has a 10-second upstream timeout. FastAPI remains the authority for
-validation, authentication, ownership, and scoring. No backend source was changed.
+validation, authentication, ownership, and scoring. Phase 3 adds the documented catalog/submission contracts to FastAPI.
 
-### Python editor and artifact boundary
+### Python editor and execution boundary
 
 Monaco and its Python grammar/worker are bundled locally; no editor code is loaded
 from a CDN. A textarea mode supports assistive technology or editor fallback.
-Source code exists only in page memory. Download `solution.py` before navigating
+Unsubmitted draft code stays only in page memory. Download `solution.py` before navigating
 away; refresh/unload warns about edited drafts, but internal navigation does not
 persist them. No code is executed in the browser, API, or frontend server.
 
-The backend has **no source-upload endpoint**. Download your solution and use your
-external runner's authorized artifact workflow to obtain an artifact ID. The UI
-requires an explicit acknowledgment that evaluation references that artifact, not
-the contents of the editor. It sends only task_id and the opaque artifact ID.
-Without a configured external runner, the worker records a failed job with no
-score. No working artifact upload or hostile-code sandbox is implied by this UI.
+Phase 3 adds `POST /submissions`. On explicit consent and Request evaluation,
+the UI stores an immutable snapshot of the editor, then queues that reference.
+If queueing fails, an unchanged retry reuses the successfully created snapshot;
+changes to the code create a new one. Source is not stored in localStorage or
+history and is never executed by Next.js. Limit: 16,000 characters / 32 KiB UTF-8.
+The snapshot is stored as data in PostgreSQL for the dedicated worker to deliver
+to the authenticated isolated runner. It is not echoed by the submission API.
+
+Choose a catalog suite when creating a challenge. Its standard-input/output
+contract is inserted into the description; editing the description does not
+change the tests. Old challenges with no suite disable evaluation and explain why.
+Without a configured and validated gVisor runner, the worker fails closed with no
+score. See [runner security/deployment](../runner/README.md). There is no native or
+ordinary-Docker fallback and no browser-side Python execution.
 
 ### History and results
 
@@ -72,8 +82,10 @@ can prevent history indexing; retain the result URL in that case.
 Queued and running jobs show no score. Failed jobs explain the backend error
 without pretending tests passed. Successful results render only actual backend
 counts, score, and feedback. Feedback is escaped as text, never injected as HTML.
-The API provides no per-test output, execution duration or code snapshot, so the
-interface does not invent those fields. A polling failure stops automatic polling
+Phase 3 case results show stable case labels, passed/failed status, generic
+reasons, and measured lifecycle durations (including sandbox startup). Expected
+answers and raw stdout/stderr remain hidden; a submitted-code download endpoint
+is not provided. Legacy completed results can have no structured case details. A polling failure stops automatic polling
 and offers retry; it never silently changes a result to successful.
 
 ## Session security and deployment
@@ -139,5 +151,6 @@ mobile browser tests use the **real backend**: register/login, verify HttpOnly
 cookies and token-free responses/storage, create a challenge, load Monaco, edit and
 download Python, submit only an artifact reference, observe honest runner failure,
 reload history, reject cross-origin mutations, and sign out. Tests create synthetic
-accounts/tasks and do not run submissions. Screenshots/traces stay in ignored test
+accounts/tasks and, on this local stack without a validated runner, do not run
+submissions. Live gVisor execution tests run only on a separately qualified host. Screenshots/traces stay in ignored test
 output directories. CI boots its own PostgreSQL/API/worker stack.

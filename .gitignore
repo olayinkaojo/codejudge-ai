@@ -18,3 +18,8 @@ playwright-report/
 test-results/
 frontend/next-env.d.ts
 frontend/AGENTS.md
+
+# Local runner state and secret environment files
+*.env
+*.sqlite*
+runner-state/

@@ -41,6 +41,7 @@ test("real backend workflow, honest failure, private session and responsive edit
   await page
     .getByLabel("Problem description")
     .fill("Return the sum of two numbers. Keep the implementation simple.");
+  await page.getByLabel("Automated test suite").selectOption("sum-two-v1");
   await page
     .getByRole("button", { name: "Create challenge", exact: true })
     .click();
@@ -76,8 +77,12 @@ test("real backend workflow, honest failure, private session and responsive edit
   await expect(
     page.getByRole("button", { name: "Request evaluation", exact: true }),
   ).toBeDisabled();
-  await page.getByLabel("Existing artifact ID").fill("browser-test-artifact");
+
   await page.getByRole("checkbox").check();
+  const codeSnapshot = page.waitForRequest(
+    (r) =>
+      r.url().endsWith("/api/backend/submissions") && r.method() === "POST",
+  );
   const submission = page.waitForRequest(
     (r) =>
       r.url().endsWith("/api/backend/evaluations") && r.method() === "POST",
@@ -85,9 +90,13 @@ test("real backend workflow, honest failure, private session and responsive edit
   await page
     .getByRole("button", { name: "Request evaluation", exact: true })
     .click();
+  expect((await codeSnapshot).postDataJSON()).toEqual({
+    task_id: expect.any(String),
+    source: "print(2 + 2)\n",
+  });
   expect((await submission).postDataJSON()).toEqual({
     task_id: expect.any(String),
-    submission_reference: "browser-test-artifact",
+    submission_reference: expect.stringMatching(/^[0-9a-f-]{36}$/),
   });
   await expect(
     page.getByText(

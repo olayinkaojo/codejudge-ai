@@ -28,17 +28,24 @@ def main():
             headers=headers,
             json={
                 "title": "Smoke task",
+                "test_suite_id": "sum-two-v1",
                 "description": "Verify durable authenticated evaluation workflow.",
             },
         )
         assert response.status_code == 201
         task = response.json()
+        submission = client.post(
+            "/submissions",
+            headers=headers,
+            json={"task_id": task["id"], "source": "a,b=map(int,input().split()); print(a+b)"},
+        )
+        assert submission.status_code == 201
         response = client.post(
             "/evaluations",
             headers=headers,
             json={
                 "task_id": task["id"],
-                "submission_reference": "smoke-artifact",
+                "submission_reference": submission.json()["id"],
             },
         )
         assert response.status_code == 202

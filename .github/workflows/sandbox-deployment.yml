@@ -1,0 +1,25 @@
+name: Validate isolated runner deployment
+# Never execute PR-controlled code automatically on a privileged self-hosted runner.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-probes:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, codejudge-gvisor]
+    environment: isolated-runner-validation
+    timeout-minutes: 10
+    env:
+      RUNNER_TOKEN: ${{ secrets.RUNNER_TOKEN }}
+      RUNNER_IMAGE: ${{ vars.RUNNER_IMAGE }}
+      RUNNER_STATE_DIR: /var/lib/codejudge-runner
+      RUNNER_LIVE_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.txt
+      # Operator-provisioned patched runsc, pinned guest image, cgroup v2, and watchdog are prerequisites.
+      - run: pytest -q tests/security/test_gvisor_live.py

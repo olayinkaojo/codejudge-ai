@@ -66,8 +66,20 @@ def task(client, auth):
         headers=auth,
         json={
             "title": "Two Sum",
+            "test_suite_id": "sum-two-v1",
             "description": "Return indices of two values summing to target.",
         },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest.fixture
+def submission(client, auth, task):
+    response = client.post(
+        "/submissions",
+        headers=auth,
+        json={"task_id": task["id"], "source": "a,b=map(int,input().split()); print(a+b)"},
     )
     assert response.status_code == 201
     return response.json()

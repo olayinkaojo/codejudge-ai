@@ -28,7 +28,7 @@ it("shows a genuine queued state without a score or invented test output", async
   );
   render(<EvaluationDetails id="evaluation-id" />);
   expect(
-    await screen.findByText("Your artifact is in the queue."),
+    await screen.findByText("Your submission is in the queue."),
   ).toBeInTheDocument();
   expect(screen.getByText("No score available")).toBeInTheDocument();
   expect(screen.getByText("No test results available")).toBeInTheDocument();
@@ -89,4 +89,59 @@ it("warns when browser history storage was unavailable", async () => {
   expect(
     screen.getByText(/This browser could not save the history entry/),
   ).toBeInTheDocument();
+});
+it("renders structured challenge cases without exposing raw or expected outputs", async () => {
+  api.mockImplementation((path: string) =>
+    Promise.resolve(
+      path.includes("tasks")
+        ? { title: "Two Sum", max_score: 100 }
+        : {
+            ...result,
+            status: "succeeded",
+            score: 50,
+            tests_passed: 1,
+            tests_total: 2,
+            case_results: [
+              {
+                id: "normal",
+                label: "Positive integers",
+                status: "passed",
+                reason: null,
+                duration_ms: 22,
+              },
+              {
+                id: "edge",
+                label: "Large integers",
+                status: "failed",
+                reason: "time_limit",
+                duration_ms: 1001,
+              },
+            ],
+          },
+    ),
+  );
+  render(<EvaluationDetails id="evaluation-id" />);
+  expect(
+    await screen.findByRole("region", { name: "Per-test results" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Large integers")).toBeInTheDocument();
+  expect(screen.getByText("time limit")).toBeInTheDocument();
+  expect(screen.getByText("1001 ms")).toBeInTheDocument();
+});
+it("does not assert isolated execution for a legacy aggregate result", async () => {
+  api.mockResolvedValue({
+    ...result,
+    status: "succeeded",
+    score: 75,
+    tests_passed: 3,
+    tests_total: 4,
+    case_results: null,
+  });
+  render(<EvaluationDetails id="evaluation-id" />);
+  expect(
+    await screen.findByText(/Legacy aggregate result/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("region", { name: "Per-test results" }),
+  ).not.toBeInTheDocument();
 });

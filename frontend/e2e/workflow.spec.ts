@@ -73,6 +73,17 @@ test("real backend workflow, honest failure, private session and responsive edit
   const downloaded = await download;
   const file = await downloaded.path();
   expect(await readFile(file!, "utf8")).toBe("print(2 + 2)\n");
+  await page.getByRole("button", { name: "Review code", exact: true }).click();
+  await expect(page.getByText("Simulated · mock")).toBeVisible();
+  await expect(page.getByText("Console output", { exact: true })).toBeVisible();
+  await expect(page.getByText("Line 1", { exact: true })).toBeVisible();
+  const reviewUrl = await page
+    .getByRole("link", { name: "Open saved review" })
+    .getAttribute("href");
+  await page.screenshot({
+    path: testInfo.outputPath("code-review.png"),
+    fullPage: true,
+  });
   await expect(
     page.getByRole("button", { name: "Request evaluation", exact: true }),
   ).toBeDisabled();
@@ -128,6 +139,25 @@ test("real backend workflow, honest failure, private session and responsive edit
   await expect(
     page.getByRole("heading", { name: "Your evaluation history." }),
   ).toBeVisible();
+  await page.goto("/reviews");
+  await expect(
+    page.getByRole("heading", { name: "Your code reviews." }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Simulated Python review/ }).click();
+  await expect(page).toHaveURL(new RegExp(reviewUrl!));
+  await expect(page.getByText("Console output", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Simulated · mock")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  expect(storage).not.toContain("print(2 + 2)");
+  await page.screenshot({
+    path: testInfo.outputPath("saved-review.png"),
+    fullPage: true,
+  });
   const crossOrigin = await fetch(
     new URL("/api/auth", testInfo.project.use.baseURL),
     {

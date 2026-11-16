@@ -23,6 +23,15 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL requires PostgreSQL with the installed Psycopg 3 driver")
         return url.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
 
+    review_provider: str = Field(default="mock", pattern="^(mock|openai)$")
+    review_external_enabled: bool = False
+    review_api_key: SecretStr | None = Field(default=None, repr=False)
+    review_model: str = Field(default="gpt-4.1-mini", pattern=r"^[a-zA-Z0-9._-]{1,80}$")
+    review_max_output_tokens: int = Field(default=1200, ge=128, le=2000)
+    review_timeout: int = Field(default=5, ge=1, le=6)
+    review_user_daily_limit: int = Field(default=20, ge=1, le=100)
+    review_global_daily_limit: int = Field(default=200, ge=1, le=1000)
+
     token_hours: int = Field(default=24, ge=1, le=720)
     sandbox_url: str | None = None
     sandbox_token: SecretStr | None = None

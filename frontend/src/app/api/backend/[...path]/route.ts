@@ -19,7 +19,7 @@ async function handle(
       return json({ detail: "Your session has expired. Sign in again." }, 401);
     }
     const query = new URLSearchParams();
-    if (path === "tasks" && request.method === "GET")
+    if (["tasks", "reviews"].includes(path) && request.method === "GET")
       for (const name of ["limit", "offset"]) {
         const value = request.nextUrl.searchParams.get(name);
         if (value !== null) query.set(name, value);

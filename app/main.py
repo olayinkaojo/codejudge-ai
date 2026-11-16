@@ -20,10 +20,14 @@ from app.database_status import check_database, report_failure
 from app.db import get_db
 from app.middleware import BodyLimitMiddleware
 from app.models import Evaluation, Task, Token, User
+from app.reviews import router as review_router
 from app.schemas import Credentials, EvaluationCreate, EvaluationOut, TaskCreate, TaskOut
 
 app = FastAPI(title="CodeJudge AI", version="1.0.0")
 app.add_middleware(BodyLimitMiddleware)
+
+
+app.include_router(review_router)
 
 
 @app.exception_handler(SQLAlchemyError)

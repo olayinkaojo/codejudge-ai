@@ -221,7 +221,7 @@ The Next.js/TypeScript frontend lives in [`frontend/`](frontend/README.md). It
 provides registration/login, a responsive challenge dashboard, a self-hosted Monaco
 Python editor, browser-local evaluation history, and detailed results. It uses
 server-managed encrypted HttpOnly cookies and the existing FastAPI contracts.
-Source uploads and server-wide evaluation history are not supported by the current
+Execution source uploads and server-wide evaluation history are not supported by the current
 API; the frontend documents and respects those boundaries.
 
 ## Render database readiness (Phase 5A)
@@ -232,3 +232,14 @@ safe diagnostics and an opt-in, free-tier-compatible startup migration step.
 starts; it defaults off. `/ready` validates all required tables/columns and the
 migration revision without writing data. Production deployment/configuration
 changes require your review; this fix does not merge or enable Phase 3.
+
+
+## Text-only code reviews (Phase 4)
+
+Open a challenge, edit Python, and select **Review code**. The default provider
+returns clearly simulated, deterministic text-pattern feedback without executing
+code or making external AI calls. Reviews have private PostgreSQL history, bounded
+usage, and a 30-day access window. This is independent of the pending Phase 3 runner.
+See [the code review guide](docs/code-reviews.md) for API contracts, privacy and
+retention, optional provider settings, tests, deployment/rollback, and the required
+Phase 3 migration reconciliation before both branches can merge.

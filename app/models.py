@@ -2,7 +2,18 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, Uuid
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -62,3 +73,27 @@ class Evaluation(Base):
     error: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CodeReview(Base):
+    __tablename__ = "code_reviews"
+    __table_args__ = (
+        CheckConstraint("status IN ('processing', 'completed', 'failed')"),
+        CheckConstraint("provider IN ('mock', 'openai')"),
+        Index("ix_code_reviews_owner_created", "owner_id", "created_at"),
+        Index("ix_code_reviews_created", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    language: Mapped[str] = mapped_column(String(16), default="python")
+    source_digest: Mapped[str] = mapped_column(String(64))
+    line_count: Mapped[int] = mapped_column(Integer)
+    provider: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="processing")
+    result: Mapped[dict | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

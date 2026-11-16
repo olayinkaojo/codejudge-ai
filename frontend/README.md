@@ -41,7 +41,7 @@ leaderboards, or fabricated success metrics.
 endpoints. The proxy only allows the methods/routes above, forwards only known
 pagination parameters, disables redirects/caching, bounds JSON request bodies to
 128 KiB, and has a 10-second upstream timeout. FastAPI remains the authority for
-validation, authentication, ownership, and scoring. No backend source was changed.
+validation, authentication, ownership, and scoring. Review routes and their backend implementation are documented below.
 
 ### Python editor and artifact boundary
 
@@ -141,3 +141,28 @@ download Python, submit only an artifact reference, observe honest runner failur
 reload history, reject cross-origin mutations, and sign out. Tests create synthetic
 accounts/tasks and do not run submissions. Screenshots/traces stay in ignored test
 output directories. CI boots its own PostgreSQL/API/worker stack.
+
+## Code reviews
+
+The challenge editor includes **Review code**, which sends the current draft only
+on explicit action. Default feedback is labeled **Simulated · mock**. The optional
+external provider requires server opt-in and an explicit consent checkbox; the UI
+shows its disclosure before any source transmission. The API key stays in FastAPI.
+
+`POST /reviews`, `GET /reviews/config`, `GET /reviews/{uuid}`, and paginated
+`GET /reviews?limit=20&offset=N` are forwarded by the authenticated BFF. `/reviews`
+and `/reviews/{uuid}` use durable, owner-only backend history, not local storage.
+Source and provider output are rendered as escaped text; snippets are never run.
+Processing/failure states do not produce execution scores. Completed reviews apply
+to the submitted snapshot; later editor changes need a new explicit request.
+
+The existing 10-second proxy timeout can expire on a Render cold start. Do not
+retry review POST automatically: it may already have reserved usage or incurred
+external cost. Check review history first. History GET recovers interrupted review
+states after 20 seconds; it never retries provider work. The draft remains in
+memory until navigation/reload. Download it before leaving.
+
+See [the backend guide](../docs/code-reviews.md) for limits, environment variables,
+retention, local testing, and safe deployment. The browser workflow covers editor
+review, persisted results across reload, and desktop/mobile layouts alongside the
+existing registration, authentication, challenge, and fail-closed evaluation flow.

@@ -1,4 +1,4 @@
-"""Exercise a local disposable Compose stack; creates a user, task and evaluation."""
+"""Exercise a local disposable Compose stack; creates a user, task, evaluation and mock review."""
 
 import argparse
 import secrets
@@ -52,6 +52,15 @@ def main():
             time.sleep(0.5)
         assert evaluation["status"] == "failed" and evaluation["error"] == "sandbox_not_configured"
         assert evaluation["score"] is None
+        assert client.get("/reviews/config", headers=headers).json()["provider"] == "mock"
+        review_response = client.post(
+            "/reviews", headers=headers, json={"task_id": task["id"], "source": "print('smoke')"}
+        )
+        assert review_response.status_code == 201
+        review = review_response.json()
+        assert review["status"] == "completed" and review["provider"] == "mock"
+        assert "Simulated" in review["result"]["summary"]
+        assert client.get("/reviews", headers=headers).json() == [review]
         if args.restart_api:
             subprocess.run(["docker", "compose", "restart", "api"], check=True)
             for _ in range(30):
@@ -61,12 +70,14 @@ def main():
                 except httpx.TransportError:
                     pass
                 time.sleep(0.5)
+            assert client.get("/reviews/" + review["id"], headers=headers).json() == review
             assert client.get("/tasks/" + task["id"], headers=headers).json() == task
             assert client.get("/evaluations/" + evaluation_id, headers=headers).json() == evaluation
         assert client.delete("/auth/token", headers=headers).status_code == 204
         assert client.get("/tasks", headers=headers).status_code == 401
+        assert client.get("/reviews", headers=headers).status_code == 401
     print(
-        "Smoke checks passed: authenticated API, durable queue, fail-closed worker, token revocation"
+        "Smoke checks passed: authenticated API, durable queue, fail-closed worker, mock review persistence, token revocation"
         + (", restart persistence." if args.restart_api else ".")
     )
 

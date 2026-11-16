@@ -166,3 +166,23 @@ See [the backend guide](../docs/code-reviews.md) for limits, environment variabl
 retention, local testing, and safe deployment. The browser workflow covers editor
 review, persisted results across reload, and desktop/mobile layouts alongside the
 existing registration, authentication, challenge, and fail-closed evaluation flow.
+
+## Phase 6 reliability and accessibility
+
+The workspace now explains cold starts and expired sessions, bounds browser
+requests, preserves validated rate-limit guidance and never automatically retries
+a mutation. Challenge/evaluation/review forms coalesce in-flight submissions and
+reuse an in-memory replay key after uncertain failure; check history before
+retrying, especially after navigation/reload. Authentication has explicit labels,
+a password visibility control, focused error announcements and duplicate-submit
+protection. Mobile navigation traps/restores focus, closes with Escape and makes
+the background inert. Help-text contrast, focus rings, touch targets and review
+layouts retain the existing sage identity.
+
+Playwright now covers desktop/tablet/mobile and supports a separate local frontend
+port via `E2E_BASE_URL=http://localhost:3006`. Both frontend and configured backend
+URLs must be loopback HTTP addresses because these tests create records. For
+managed cloud Chromium, set `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium` if needed.
+See [the audit/checklist](../docs/production-readiness.md) for production limitations
+and release/rollback requirements. No production environment changes are needed
+for these UI improvements.

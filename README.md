@@ -243,3 +243,10 @@ usage, and a 30-day access window. This is independent of the pending Phase 3 ru
 See [the code review guide](docs/code-reviews.md) for API contracts, privacy and
 retention, optional provider settings, tests, deployment/rollback, and the required
 Phase 3 migration reconciliation before both branches can merge.
+
+## Production polish and release review (Phase 6)
+
+See the [audit and production-readiness checklist](docs/production-readiness.md)
+for cold-start recovery, duplicate-request semantics, accessibility changes, local
+validation, remaining risks, deployment order and rollback. This phase adds no
+database migration and does not activate AI or the pending execution runner.

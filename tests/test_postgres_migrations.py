@@ -71,3 +71,40 @@ def test_concurrent_migration_lock_fails_safely_and_is_repeatable(engine):
     upgrade_database(engine)
     with engine.connect() as connection:
         check_database(connection)
+
+
+def test_phase4_additive_upgrade_preserves_legacy_records(engine):
+    # This fixture refuses every database without the dedicated migration-test suffix.
+    with engine.connect() as connection:
+        config = migration_config()
+        config.attributes["connection"] = connection
+        command.downgrade(config, "00391b88d2bb")
+    owner, task, evaluation = uuid4(), uuid4(), uuid4()
+    with engine.begin() as db:
+        db.execute(
+            text("INSERT INTO users (id,username,password_hash) VALUES (:id,:name,'synthetic')"),
+            {"id": owner, "name": "legacy_" + owner.hex},
+        )
+        db.execute(
+            text(
+                "INSERT INTO tasks (id,owner_id,title,description,max_score,created_at) VALUES (:id,:owner,'Legacy','Preserve this challenge',100,now())"
+            ),
+            {"id": task, "owner": owner},
+        )
+        db.execute(
+            text(
+                "INSERT INTO evaluations (id,task_id,owner_id,submission_reference,status,attempts,created_at) VALUES (:id,:task,:owner,'legacy-artifact','queued',0,now())"
+            ),
+            {"id": evaluation, "task": task, "owner": owner},
+        )
+    upgrade_database(engine)
+    with engine.connect() as db:
+        assert (
+            db.execute(
+                text("SELECT submission_reference FROM evaluations WHERE id=:id"), {"id": evaluation}
+            ).scalar_one()
+            == "legacy-artifact"
+        )
+        assert db.execute(text("SELECT title FROM tasks WHERE id=:id"), {"id": task}).scalar_one() == "Legacy"
+        assert inspect(db).has_table("code_reviews")
+        check_database(db)

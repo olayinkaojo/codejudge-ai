@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  ScanText,
   X,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/client";
@@ -67,6 +68,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   const nav = [
     { href: "/dashboard", name: "Challenges", icon: LayoutDashboard },
     { href: "/history", name: "Evaluation history", icon: Clock3 },
+    { href: "/reviews", name: "Code reviews", icon: ScanText },
   ];
   return (
     <div className="app-shell">
@@ -146,13 +148,15 @@ export function Workspace({ children }: { children: React.ReactNode }) {
           <span>
             Workspace <ChevronRight size={14} />{" "}
             <strong>
-              {pathname.startsWith("/history")
-                ? "Evaluation history"
-                : pathname.startsWith("/results")
-                  ? "Evaluation details"
-                  : pathname.startsWith("/challenges")
-                    ? "Challenge workspace"
-                    : "Challenges"}
+              {pathname.startsWith("/reviews")
+                ? "Code reviews"
+                : pathname.startsWith("/history")
+                  ? "Evaluation history"
+                  : pathname.startsWith("/results")
+                    ? "Evaluation details"
+                    : pathname.startsWith("/challenges")
+                      ? "Challenge workspace"
+                      : "Challenges"}
             </strong>
           </span>
           <span className="topbar-tag">

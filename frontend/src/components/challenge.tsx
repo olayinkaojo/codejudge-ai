@@ -14,6 +14,7 @@ import {
 import { api, backend } from "@/lib/client";
 import { remember } from "@/lib/history";
 import type { Evaluation, Task } from "@/lib/types";
+import { ReviewAction } from "./reviews";
 import { ErrorNotice, Loading } from "./ui";
 import { useUsername } from "./workspace";
 const Editor = dynamic(() => import("./python-editor"), {
@@ -161,6 +162,7 @@ export function Challenge({ id }: { id: string }) {
               </div>
             </section>
           </div>
+          <ReviewAction taskId={task.id} source={source} />
           <section className="submission-panel">
             <div>
               <div className="eyebrow">READY FOR FEEDBACK?</div>

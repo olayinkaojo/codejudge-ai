@@ -220,7 +220,7 @@ coverage, 42 frontend tests passed and 6 desktop/tablet/mobile journeys passed.
 Ruff, ESLint, Prettier, types, Next.js production build, dependency consistency,
 migration/model checks and separate local Docker restart-persistence smoke passed.
 The native PostgreSQL client commands in this managed workspace were supplied by
-thin local wrappers around an isolated PostgreSQL 16 container; CI installs native
-16 clients. Both use the same CLI and actual pg_dump/pg_restore/GnuPG operations.
+thin local wrappers around an isolated PostgreSQL 16 container; CI pins Ubuntu 24.04 for its supported native
+16 client packages rather than the moving ubuntu-latest label. Both use the same CLI and actual pg_dump/pg_restore/GnuPG operations.
 No production connection/data, backup schedule, paid storage or real AI call was
 used. Remote CI and live recovery readiness must be checked separately.
